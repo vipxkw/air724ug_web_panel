@@ -46,9 +46,13 @@ local function handleTask(ws, json_data)
                 elseif json_data.task == "get_config" then
                     -- 获取config模块中的变量
                     local config_vars = {}
-                    -- 获取config模块中的所有变量
-                    for k, v in pairs(config) do
-                        if type(v) ~= "function" and k:match("^[A-Z_]+$") then
+                    -- 获取nvm中存储的所有变量
+                    -- 遍历config表以获取所有可能的配置项名称，然后从nvm获取实际值
+                    for k, _ in pairs(config) do
+                        -- 仅处理符合命名规范的变量
+                        if type(config[k]) ~= "function" and k:match("^[A-Z_]+$") then
+                            local v = nvm.get(k) -- *** 修改点: 从nvm获取变量值 ***
+
                             -- 处理不同类型的值，确保可以序列化
                             if type(v) == "table" then
                                 -- 如果是表，检查是否为空表
@@ -58,7 +62,7 @@ local function handleTask(ws, json_data)
                                     -- 检查表中的值是否都是基本类型
                                     local can_serialize = true
                                     for _, val in pairs(v) do
-                                        if type(val) ~= "string" and type(val) ~= "number" and type(val) ~= "boolean" then
+                                        if type(val) ~= "string" and type(val) ~= "number" and type(val) ~= "boolean" and type(val) ~= "nil" then
                                             can_serialize = false
                                             break
                                         end
@@ -66,10 +70,12 @@ local function handleTask(ws, json_data)
                                     if can_serialize then
                                         config_vars[k] = v
                                     else
+                                        -- 如果表包含非基本类型，尝试序列化，或根据需要进行其他处理
+                                        -- 这里的 tostring(v) 可能不足够，可以考虑更复杂的序列化逻辑
                                         config_vars[k] = tostring(v)
                                     end
                                 end
-                            elseif type(v) == "string" or type(v) == "number" or type(v) == "boolean" then
+                            elseif type(v) == "string" or type(v) == "number" or type(v) == "boolean" or type(v) == "nil" then -- *** 修改点: 增加nil类型处理 ***
                                 config_vars[k] = v
                             else
                                 config_vars[k] = tostring(v)
