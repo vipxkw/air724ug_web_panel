@@ -1,4 +1,4 @@
-## Air724ug Web 控制
+## Air724ug Web Panel
 
 改自 0wQ 大佬的脚本固件，请自行去找底包做一下修改变更
 
@@ -38,4 +38,8 @@ cd server
 npm install
 npm run start
 ```
+
+### 说明
+
+请勿用于非法用途及盈利！！！
 
