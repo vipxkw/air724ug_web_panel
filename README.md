@@ -32,11 +32,14 @@ Nodejs 服务部署即可，端口默认 9527
 
 Web地址：http://{替换成自己公网IP}:9527
 
-```js
-// 服务端启动，可自行挂到后台，或者使用pm2启动
+```shll
+# 服务端启动，可自行挂到后台，或者使用pm2启动
 cd server
 npm install
 npm run start
+
+# 使用 docker-compose 构建镜像
+docker-compose up -d
 ```
 
 ### 说明

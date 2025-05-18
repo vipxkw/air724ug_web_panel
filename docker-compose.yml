@@ -1,0 +1,20 @@
+version: '3'
+
+services:
+  websocket-server:
+    container_name: wss
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+      args:
+        - NODE_ENV=production
+    image: websocket-server:latest
+    pull_policy: always
+    ports:
+      - "9527:9527"
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
