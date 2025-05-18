@@ -152,18 +152,6 @@ local function handleTask(ws, json_data)
 end
 
 local function startWebSocket()
-    -- 等待网络就绪
-    log.info("websocket", "等待网络就绪...")
-    if not sys.waitUntil("IP_READY_IND", 1000 * 60 * 2) then
-        log.error("websocket", "网络就绪超时")
-        return
-    end
-    log.info("websocket", "网络已就绪")
-
-    -- 开机通知
-    if nvm.get("BOOT_NOTIFY") then
-        util_notify.add("#BOOT_" .. rtos.poweron_reason())
-    end
 
     log.info("websocket", "开始连接")
 
@@ -202,12 +190,7 @@ local function startWebSocket()
     end)
 
     -- 启动WebSocket任务
-    ws:start(120)  -- 30秒心跳
-
-    -- 定时查询流量
-    if config.QUERY_TRAFFIC_INTERVAL and config.QUERY_TRAFFIC_INTERVAL >= 1000 * 60 then
-        sys.timerLoopStart(util_mobile.queryTraffic, config.QUERY_TRAFFIC_INTERVAL)
-    end
+    ws:start(120)
 end
 
 return {

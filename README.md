@@ -5,7 +5,7 @@
 ### 脚本变更指南
 
 1. 将script中新增得两个脚本文件新增到对应得目录
-2. main.lua 中引入如下代码
+2. main.lua 中引入如下代码，追加到网络启动后
 3. config.lua 中新增 `WEBSOCKET_URL` 变量指定服务端地址
 
 ```lua
@@ -14,12 +14,12 @@ local util_websocket = require "util_websocket"
 
 -- 任务初始化中启动与服务端得连接
 sys.taskInit(function()
-    -- ...
+    -- ...追加此处代码到网络启动功后
     if config.WEBSOCKET_URL and config.WEBSOCKET_URL ~= "" then
         log.info("main", "WebSocket URL 已配置，开始启动WebSocket连接。")
         util_websocket.start()
     end
-    -- ...
+    -- ...追加此处代码到网络启动功后
 end)
 ```
 
