@@ -12,14 +12,14 @@
 -- 头部引入util_websocket
 local util_websocket = require "util_websocket"
 
--- 任务初始化中启动与服务端得连接
+-- 任务初始化中启动与服务端连接
 sys.taskInit(function()
-    -- ...追加此处代码到网络启动功后
+    -- ...追加此处代码到网络启动成功后
     if config.WEBSOCKET_URL and config.WEBSOCKET_URL ~= "" then
         log.info("main", "WebSocket URL 已配置，开始启动WebSocket连接。")
         util_websocket.start()
     end
-    -- ...追加此处代码到网络启动功后
+    -- ...追加此处代码到网络启动成功后
 end)
 ```
 
@@ -28,9 +28,9 @@ end)
 
 Nodejs 服务部署即可，端口默认 9527
 
-服务地址：ws://{替换成自己公网IP}:9527/websocket
+服务地址：`ws://{替换成自己公网IP}:9527/websocket`
 
-Web地址：http://{替换成自己公网IP}:9527
+Web地址：`http://{替换成自己公网IP}:9527`
 
 ```shll
 # 服务端启动，可自行挂到后台，或者使用pm2启动
