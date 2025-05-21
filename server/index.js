@@ -1,6 +1,7 @@
 // 创建一个websocket服务器
 const WebSocket = require("ws");
 const express = require("express");
+const path = require("path");
 
 const app = express();
 const server = require("http").createServer(app);
@@ -11,7 +12,20 @@ const wss = new WebSocket.Server({
 
 app.use(express.json());
 
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, "public")));
+
+// 自定义前端路由处理中间件
+app.use((req, res, next) => {
+  if (
+    req.path.startsWith("/userPool") ||
+    req.path.startsWith("/executeTask") ||
+    req.path.startsWith("/websocket")
+  ) {
+    return next();
+  }
+
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
 
 const userPool = new Map();
 // 存储任务执行结果
