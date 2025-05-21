@@ -42,6 +42,8 @@ npm run start
 docker-compose up -d
 ```
 
+默认用户名/密码：`admin/admin`
+
 ### 说明
 
 请勿用于非法用途及盈利！！！
