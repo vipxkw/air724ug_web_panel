@@ -2,6 +2,9 @@
 const WebSocket = require("ws");
 const express = require("express");
 const path = require("path");
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
+const fs = require("fs");
 
 const app = express();
 const server = require("http").createServer(app);
@@ -10,9 +13,127 @@ const wss = new WebSocket.Server({
   path: "/websocket",
 });
 
+// 读取配置文件
+const config = JSON.parse(fs.readFileSync(path.join(__dirname, "config.json"), "utf8"));
+
 app.use(express.json());
 
 app.use(express.static(path.join(__dirname, "public")));
+
+// 存储已失效的token
+const invalidTokens = new Set();
+
+// JWT 认证中间件
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+
+  if (!token) {
+    return res.status(401).json({ message: "未提供认证令牌" });
+  }
+
+  // 检查token是否已失效
+  if (invalidTokens.has(token)) {
+    return res.status(403).json({ message: "token已失效" });
+  }
+
+  jwt.verify(token, config.jwtSecret, (err, decoded) => {
+    if (err) {
+      return res.status(403).json({ message: "无效的认证令牌" });
+    }
+    
+    // 检查token版本是否匹配
+    if (decoded.version !== config.tokenVersion) {
+      return res.status(403).json({ message: "token已过期，请重新登录" });
+    }
+    
+    req.user = decoded;
+    next();
+  });
+};
+
+// 登录接口
+app.post("/login", async (req, res) => {
+  const { username, password } = req.body;
+
+  if (username !== config.user.username) {
+    return res.status(401).json({ message: "用户名或密码错误" });
+  }
+
+  const validPassword = await bcrypt.compare(password, config.user.password);
+  if (!validPassword) {
+    return res.status(401).json({ message: "用户名或密码错误" });
+  }
+
+  const token = jwt.sign(
+    { 
+      username,
+      version: config.tokenVersion 
+    }, 
+    config.jwtSecret, 
+    { expiresIn: "24h" }
+  );
+  res.json({ token });
+});
+
+// 修改用户信息接口
+app.post("/change-user-info", authenticateToken, async (req, res) => {
+  const { oldPassword, newUsername, newPassword } = req.body;
+
+  // 验证旧密码
+  const validPassword = await bcrypt.compare(oldPassword, config.user.password);
+  if (!validPassword) {
+    return res.json({ message: "原密码错误" });
+  }
+
+  let hasChanges = false;
+
+  // 更新用户名（如果提供）
+  if (newUsername && newUsername !== config.user.username) {
+    config.user.username = newUsername;
+    hasChanges = true;
+  }
+
+  // 更新密码（如果提供）
+  if (newPassword) {
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    config.user.password = hashedPassword;
+    hasChanges = true;
+  }
+
+  // 如果有任何更改，增加token版本号
+  if (hasChanges) {
+    config.tokenVersion += 1;
+  }
+
+  // 保存更新后的配置
+  fs.writeFileSync(
+    path.join(__dirname, "config.json"),
+    JSON.stringify(config, null, 2)
+  );
+
+  res.json({
+    message: "用户信息修改成功",
+    username: config.user.username,
+    needRelogin: hasChanges // 告诉前端是否需要重新登录
+  });
+});
+
+// 退出登录接口
+app.post("/logout", authenticateToken, (req, res) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+  
+  // 将当前token加入黑名单
+  invalidTokens.add(token);
+  
+  // 设置一个定时器，24小时后从黑名单中移除（与token过期时间一致）
+  setTimeout(() => {
+    invalidTokens.delete(token);
+  }, 24 * 60 * 60 * 1000);
+
+  res.json({ message: "退出登录成功" });
+});
 
 // 自定义前端路由处理中间件
 app.use((req, res, next) => {
@@ -31,8 +152,8 @@ const userPool = new Map();
 // 存储任务执行结果
 const taskResults = new Map();
 
-// Express 路由
-app.get("/userPool", (req, res) => {
+// 需要认证的路由
+app.get("/userPool", authenticateToken, (req, res) => {
   const users = Array.from(userPool.entries()).map(([imei, user]) => ({
     imei,
     phone: user.phone,
@@ -43,7 +164,7 @@ app.get("/userPool", (req, res) => {
 });
 
 // 执行任务接口
-app.post("/executeTask", async (req, res) => {
+app.post("/executeTask", authenticateToken, async (req, res) => {
   const { imei, task, ...rest } = req.body;
 
   if (!imei || !task) {

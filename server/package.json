@@ -10,6 +10,8 @@
   "description": "",
   "dependencies": {
     "express": "^5.1.0",
-    "ws": "^8.18.2"
+    "ws": "^8.18.2",
+    "bcryptjs": "^3.0.2",
+    "jsonwebtoken": "^9.0.2"
   }
 }
