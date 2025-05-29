@@ -43,6 +43,24 @@ docker-compose up -d
 
 默认用户名/密码：`admin/admin`
 
+### WEB端开发指南
+
+基于开源的框架二次开发，冗余代码未处理
+
+```shell
+
+cd web
+
+# 本地开发
+npm run dev
+
+# 构建打包
+npm run build:pro
+
+```
+
+将打包后的`dist`目录文件替换到`server/public`目录下
+
 ### 说明
 
 请勿用于非法用途及盈利！！！
