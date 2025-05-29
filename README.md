@@ -23,7 +23,6 @@ sys.taskInit(function()
 end)
 ```
 
-
 ### 服务端部署指南
 
 Nodejs 服务部署即可，端口默认 9527
@@ -47,4 +46,7 @@ docker-compose up -d
 ### 说明
 
 请勿用于非法用途及盈利！！！
+
+### Example
+![image](https://github.com/TheHot/air724ug_web_panel/blob/main/example.jpg?raw=true)
 
