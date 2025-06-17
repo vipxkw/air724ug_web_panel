@@ -60,7 +60,7 @@ onMounted(() => {
 <template>
   <div class="device-list">
     <template v-if="deviceList.length > 0">
-      <van-search v-model="searchQuery" placeholder="搜索 IMEI 或手机号" />
+      <van-search v-model="searchQuery" class="search-bar" placeholder="搜索 IMEI 或手机号" />
       <van-pull-refresh v-model="loading" @refresh="fetchDeviceList">
         <van-cell-group :inset="true">
           <van-cell v-if="loading" center>
@@ -108,6 +108,20 @@ onMounted(() => {
 </route>
 
 <style scoped>
+.device-list {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--van-nav-bar-height) - var(--van-tabbar-height) - 32px);
+}
+
+.van-pull-refresh {
+  flex: 1;
+}
+
+.search-bar {
+  margin: -16px;
+  margin-bottom: 16px;
+}
 .van-cell {
   padding-top: 8px;
   padding-bottom: 8px;

@@ -18,6 +18,7 @@
     "prepare": "simple-git-hooks"
   },
   "dependencies": {
+    "@guolao/vue-monaco-editor": "^1.5.5",
     "@unhead/vue": "2.0.8",
     "@vant/touch-emulator": "^1.4.0",
     "@vant/use": "^1.6.0",
@@ -26,6 +27,7 @@
     "dayjs": "^1.11.13",
     "echarts": "^5.6.0",
     "lodash-es": "^4.17.21",
+    "monaco-editor": "^0.52.2",
     "nprogress": "^0.2.0",
     "pinia": "^3.0.2",
     "pinia-plugin-persistedstate": "^4.3.0",
