@@ -61,11 +61,41 @@ local function handleTask(ws, json_data)
                         end
                     end
                 elseif json_data.task == "get_config" then
+                    -- 获取config模块中的变量
                     local config_vars = {}
-                    local nvm_config = nvm.para
-                    for k, v in pairs(nvm_config) do
-                        if type(v) ~= "function" then
-                            config_vars[k] = serializeValue(v)
+                    local nvm_vars = nvm.para
+                    -- 获取nvm中存储的所有变量
+                    -- 遍历config表以获取v所有可能的配置项名称，然后从nvm获取实际值
+                    for k, v in pairs(nvm_vars) do
+                        -- 仅处理符合命名规范的变量
+                        if type(v) ~= "function" and type(v) ~= nil then
+                            -- 处理不同类型的值，确保可以序列化
+                            if type(v) == "table" then
+                                -- 如果是表，检查是否为空表
+                                if next(v) == nil then
+                                    config_vars[k] = {}
+                                else
+                                    -- 检查表中的值是否都是基本类型
+                                    local can_serialize = true
+                                    for _, val in pairs(v) do
+                                        if type(val) ~= "string" and type(val) ~= "number" and type(val) ~= "boolean" and type(val) ~= "nil" then
+                                            can_serialize = false
+                                            break
+                                        end
+                                    end
+                                    if can_serialize then
+                                        config_vars[k] = v
+                                    else
+                                        -- 如果表包含非基本类型，尝试序列化，或根据需要进行其他处理
+                                        -- 这里的 tostring(v) 可能不足够，可以考虑更复杂的序列化逻辑
+                                        config_vars[k] = tostring(v)
+                                    end
+                                end
+                            elseif type(v) == "string" or type(v) == "number" or type(v) == "boolean" or type(v) == "nil" then
+                                config_vars[k] = v
+                            else
+                                config_vars[k] = tostring(v)
+                            end
                         end
                     end
                     result = config_vars
