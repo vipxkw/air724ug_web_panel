@@ -8,13 +8,30 @@ local util_temperature = require "util_temperature"
 local config = require "config"
 local nvm = require "nvm"
 
-local function handleTask(ws, json_data)
+local function serializeValue(val)
+    if type(val) == "table" then
+        local result = {}
+        for k, v in pairs(val) do
+            if type(v) == "table" then
+                result[k] = serializeValue(v)
+            elseif type(v) == "string" or type(v) == "number" or type(v) == "boolean" or type(v) == "nil" then
+                result[k] = v
+            else
+                result[k] = tostring(v)
+            end
+        end
+        return result
+    elseif type(val) == "string" or type(val) == "number" or type(val) == "boolean" or type(val) == "nil" then
+        return val
+    else
+        return tostring(val)
+    end
+end
 
-    -- log.info('任务解析', json_data.type, json_data.taskId, json_data.task)
+local function handleTask(ws, json_data)
 
     -- 处理task类型的消息
     if json_data.type == "task" and json_data.taskId then
-        -- log.info('开始执行task：', json_data.taskId, json_data.task)
         -- 执行对应的task函数
         sys.taskInit(function()
             local result = nil
@@ -44,42 +61,11 @@ local function handleTask(ws, json_data)
                         end
                     end
                 elseif json_data.task == "get_config" then
-                    -- 获取config模块中的变量
                     local config_vars = {}
-                    -- 获取nvm中存储的所有变量
-                    -- 遍历config表以获取所有可能的配置项名称，然后从nvm获取实际值
-                    for k, _ in pairs(config) do
-                        -- 仅处理符合命名规范的变量
-                        if type(config[k]) ~= "function" and k:match("^[A-Z_]+$") then
-                            local v = nvm.get(k) -- *** 修改点: 从nvm获取变量值 ***
-
-                            -- 处理不同类型的值，确保可以序列化
-                            if type(v) == "table" then
-                                -- 如果是表，检查是否为空表
-                                if next(v) == nil then
-                                    config_vars[k] = {}
-                                else
-                                    -- 检查表中的值是否都是基本类型
-                                    local can_serialize = true
-                                    for _, val in pairs(v) do
-                                        if type(val) ~= "string" and type(val) ~= "number" and type(val) ~= "boolean" and type(val) ~= "nil" then
-                                            can_serialize = false
-                                            break
-                                        end
-                                    end
-                                    if can_serialize then
-                                        config_vars[k] = v
-                                    else
-                                        -- 如果表包含非基本类型，尝试序列化，或根据需要进行其他处理
-                                        -- 这里的 tostring(v) 可能不足够，可以考虑更复杂的序列化逻辑
-                                        config_vars[k] = tostring(v)
-                                    end
-                                end
-                            elseif type(v) == "string" or type(v) == "number" or type(v) == "boolean" or type(v) == "nil" then -- *** 修改点: 增加nil类型处理 ***
-                                config_vars[k] = v
-                            else
-                                config_vars[k] = tostring(v)
-                            end
+                    local nvm_config = nvm.para
+                    for k, v in pairs(nvm_config) do
+                        if type(v) ~= "function" then
+                            config_vars[k] = serializeValue(v)
                         end
                     end
                     result = config_vars
@@ -94,30 +80,28 @@ local function handleTask(ws, json_data)
                         
                         -- 遍历所有配置项
                         for key, value in pairs(json_data.configs) do
-                            -- 检查key是否符合命名规范
-                            if not key:match("^[A-Z_]+$") then
-                                fail_count = fail_count + 1
-                                fail_reasons[key] = "配置项名称必须全大写字母和下划线组成"
+                            log.info("设置配置项", key, value)
+                            if value == nil or tostring(value) == "userdata: 0x0" then
+                                config[key] = nil
+                                nvm.set(key, nil)
                             else
                                 -- 设置config变量
                                 config[key] = value
                                 -- 保存到NVM
                                 nvm.set(key, value)
-                                success_count = success_count + 1
-                                
-                                -- 如果修改了特定配置，需要立即生效
-                                if key == "LED_ENABLE" then
-                                    if value then
-                                        pmd.ldoset(2, pmd.LDO_VLCD)
-                                    end
-                                elseif key == "RNDIS_ENABLE" then
-                                    ril.request("AT+RNDISCALL=" .. (value and 1 or 0) .. ",0")
-                                end
                             end
+                            success_count = success_count + 1
+                            
+                            -- 如果修改了特定配置，需要立即生效
+                            if key == "LED_ENABLE" then
+                                if value then
+                                    pmd.ldoset(2, pmd.LDO_VLCD)
+                                end
+                            elseif key == "RNDIS_ENABLE" then
+                                ril.request("AT+RNDISCALL=" .. (value and 1 or 0) .. ",0")
+                            end
+                            log.info("获取配置项", key, nvm.get(key))
                         end
-                        
-                        -- 保存NVM
-                        nvm.flush()
                         
                         -- 设置返回结果
                         result = {
@@ -152,7 +136,7 @@ local function handleTask(ws, json_data)
 end
 
 local function startWebSocket()
-
+    
     log.info("websocket", "开始连接")
 
     -- websocket 连接
