@@ -8,28 +8,52 @@ local util_temperature = require "util_temperature"
 local config = require "config"
 local nvm = require "nvm"
 
-local function serializeValue(val)
-    if type(val) == "table" then
-        local result = {}
-        for k, v in pairs(val) do
-            if type(v) == "table" then
-                result[k] = serializeValue(v)
-            elseif type(v) == "string" or type(v) == "number" or type(v) == "boolean" or type(v) == "nil" then
-                result[k] = v
-            else
-                result[k] = tostring(v)
+-- 将 Lua 配置字符串解析为 Lua 表的辅助函数
+local function parse_lua_config_string(config_text)
+    local sandbox_env = {}
+    sandbox_env.table = table
+    sandbox_env.string = string
+    sandbox_env.pairs = pairs
+    sandbox_env.ipairs = ipairs
+    sandbox_env.type = type
+    sandbox_env.tostring = tostring
+
+    local captured_module_table = nil
+    sandbox_env.module = function(_, module_name_arg)
+        local new_table = {}
+        captured_module_table = new_table
+        setfenv(1, new_table)
+        return new_table
+    end
+
+    local func, err = loadstring(config_text)
+    if not func then
+        return nil, "加载配置失败: " .. err
+    end
+
+    setfenv(func, sandbox_env)
+
+    local success, result = pcall(func)
+    if not success then
+        return nil, "执行配置失败: " .. result
+    end
+
+    if captured_module_table then
+        return captured_module_table
+    else
+        local final_config_table = {}
+        for k, v in pairs(sandbox_env) do
+            if k ~= "table" and k ~= "string" and k ~= "pairs" and k ~= "ipairs" and
+               k ~= "type" and k ~= "tostring" and k ~= "module" then
+                final_config_table[k] = v
             end
         end
-        return result
-    elseif type(val) == "string" or type(val) == "number" or type(val) == "boolean" or type(val) == "nil" then
-        return val
-    else
-        return tostring(val)
+        return final_config_table
     end
 end
 
 local function handleTask(ws, json_data)
-
+    log.info("websocket:message", json_data.task)
     -- 处理task类型的消息
     if json_data.type == "task" and json_data.taskId then
         -- 执行对应的task函数
@@ -61,84 +85,37 @@ local function handleTask(ws, json_data)
                         end
                     end
                 elseif json_data.task == "get_config" then
-                    -- 获取config模块中的变量
-                    local config_vars = {}
-                    local nvm_vars = nvm.para
-                    -- 获取nvm中存储的所有变量
-                    -- 遍历config表以获取v所有可能的配置项名称，然后从nvm获取实际值
-                    for k, v in pairs(nvm_vars) do
-                        -- 仅处理符合命名规范的变量
-                        if type(v) ~= "function" and type(v) ~= nil then
-                            -- 处理不同类型的值，确保可以序列化
-                            if type(v) == "table" then
-                                -- 如果是表，检查是否为空表
-                                if next(v) == nil then
-                                    config_vars[k] = {}
-                                else
-                                    -- 检查表中的值是否都是基本类型
-                                    local can_serialize = true
-                                    for _, val in pairs(v) do
-                                        if type(val) ~= "string" and type(val) ~= "number" and type(val) ~= "boolean" and type(val) ~= "nil" then
-                                            can_serialize = false
-                                            break
-                                        end
-                                    end
-                                    if can_serialize then
-                                        config_vars[k] = v
-                                    else
-                                        -- 如果表包含非基本类型，尝试序列化，或根据需要进行其他处理
-                                        -- 这里的 tostring(v) 可能不足够，可以考虑更复杂的序列化逻辑
-                                        config_vars[k] = tostring(v)
-                                    end
-                                end
-                            elseif type(v) == "string" or type(v) == "number" or type(v) == "boolean" or type(v) == "nil" then
-                                config_vars[k] = v
-                            else
-                                config_vars[k] = tostring(v)
-                            end
-                        end
-                    end
-                    result = config_vars
-                elseif json_data.task == "set_config" then
-                    -- 检查必要参数
-                    if not json_data.configs or type(json_data.configs) ~= "table" then
-                        error = "缺少必要参数: configs (必须是对象)"
+                    -- 直接读取/nvm_para.lua文件内容
+                    local file = io.open("/nvm_para.lua", "r")
+                    if file then
+                        local content = file:read("*a")
+                        file:close()
+                        result = content
                     else
-                        local success_count = 0
-                        local fail_count = 0
-                        local fail_reasons = {}
-                        
-                        -- 遍历所有配置项
-                        for key, value in pairs(json_data.configs) do
-                            log.info("设置配置项", key, value)
-                            if value == nil or tostring(value) == "userdata: 0x0" then
-                                config[key] = nil
-                                nvm.set(key, nil)
-                            else
-                                -- 设置config变量
-                                config[key] = value
-                                -- 保存到NVM
-                                nvm.set(key, value)
-                            end
-                            success_count = success_count + 1
-                            
-                            -- 如果修改了特定配置，需要立即生效
-                            if key == "LED_ENABLE" then
-                                if value then
-                                    pmd.ldoset(2, pmd.LDO_VLCD)
+                        error = "无法读取/nvm_para.lua文件"
+                    end
+                elseif json_data.task == "set_config" then
+                    if not json_data.configText or type(json_data.configText) ~= "string" then
+                        error = "缺少必要参数: configText (必须是字符串)"
+                    else
+                        -- 直接写入 configText 到 /nvm_para.lua
+                        local file = io.open("/nvm_para.lua", "w+")
+                        if file then
+                            file:write(json_data.configText)
+                            file:close()
+                            -- 直接解析 configText 并更新 config 表
+                            local newcfg, err = parse_lua_config_string(json_data.configText)
+                            if newcfg then
+                                for k, v in pairs(newcfg) do
+                                    config[k] = v
                                 end
-                            elseif key == "RNDIS_ENABLE" then
-                                ril.request("AT+RNDISCALL=" .. (value and 1 or 0) .. ",0")
+                                result = {success = true}
+                            else
+                                error = "解析配置字符串失败: " .. err
                             end
-                            log.info("获取配置项", key, nvm.get(key))
+                        else
+                            error = "无法写入/nvm_para.lua文件"
                         end
-                        
-                        -- 设置返回结果
-                        result = {
-                            success_count = success_count,
-                            fail_count = fail_count,
-                            fail_reasons = fail_reasons
-                        }
                     end
                 else
                     error = "未知的任务类型: " .. (json_data.task or "nil")
@@ -185,12 +162,9 @@ local function startWebSocket()
     end)
 
     ws:on("message", function(data)
-        log.info("websocket", "收到数据:", data)
         -- 解析JSON数据
         local success, json_data = pcall(json.decode, data)
         if success then
-            -- 处理JSON数据
-            log.info("websocket", "JSON数据:", json.encode(json_data))
             handleTask(ws, json_data)
         end
     end)
