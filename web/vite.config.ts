@@ -38,6 +38,13 @@ export default ({ mode }: ConfigEnv): UserConfig => {
       cssCodeSplit: false,
       chunkSizeWarningLimit: 2048,
       outDir: env.VITE_APP_OUT_DIR || 'dist',
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'monaco-editor': ['monaco-editor'],
+          },
+        },
+      },
     },
 
     optimizeDeps: { include, exclude },
