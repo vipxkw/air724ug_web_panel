@@ -1,8 +1,7 @@
 ## Air724ug Web Panel
 
 改自 0wQ 大佬的脚本固件，请自行去找底包做一下修改变更
-
-QQ交流群：865187285
+服务端来自TheHot开源脚本
 
 ### 脚本变更指南
 
@@ -68,5 +67,5 @@ npm run build:pro
 请勿用于非法用途及盈利！！！
 
 ### Example
-![image](https://github.com/TheHot/air724ug_web_panel/blob/main/example.jpg?raw=true)
+![image](https://github.com/vipxkw/air724ug_web_panel/blob/main/example.jpg?raw=true)
 
